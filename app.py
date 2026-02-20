@@ -17,13 +17,24 @@ team_members = [
 uploaded_file = st.file_uploader("Upload Leads (CSV)", type=["csv"])
 
 if uploaded_file is not None:
-    # Read the uploaded CSV with an encoding fallback for Facebook Leads
+    # 1. Try standard UTF-8 encoding
     try:
         df = pd.read_csv(uploaded_file, encoding='utf-8')
+    # 2. If it fails, it's likely Facebook's UTF-16 format
     except UnicodeDecodeError:
-        uploaded_file.seek(0) # Reset the file pointer
-        df = pd.read_csv(uploaded_file, encoding='utf-16')
+        uploaded_file.seek(0)
+        # Facebook's UTF-16 files use tabs ('\t') instead of commas to separate columns
+        df = pd.read_csv(uploaded_file, encoding='utf-16', sep='\t')
         
+    # 3. Double-check: If everything is still mashed into 1 column, force it to split by tabs
+    if len(df.columns) == 1:
+        uploaded_file.seek(0)
+        # Try UTF-8 with tabs just in case
+        try:
+            df = pd.read_csv(uploaded_file, encoding='utf-8', sep='\t')
+        except UnicodeDecodeError:
+            pass # Keep the previous dataframe if this fails
+            
     st.success(f"Successfully loaded {len(df)} leads!")
     
     # Check if the 'Programme' column exists to balance Computing vs Software Engineering equally
@@ -47,7 +58,7 @@ if uploaded_file is not None:
     
     # Create the downloadable file
     csv_buffer = io.StringIO()
-    # We save the output back to standard UTF-8 so Excel and Sheets can read it easily
+    # Save the output back to standard UTF-8 with commas so Excel reads it easily
     df.to_csv(csv_buffer, index=False, encoding='utf-8')
     
     st.download_button(
