@@ -17,8 +17,13 @@ team_members = [
 uploaded_file = st.file_uploader("Upload Leads (CSV)", type=["csv"])
 
 if uploaded_file is not None:
-    # Read the uploaded CSV
-    df = pd.read_csv(uploaded_file)
+    # Read the uploaded CSV with an encoding fallback for Facebook Leads
+    try:
+        df = pd.read_csv(uploaded_file, encoding='utf-8')
+    except UnicodeDecodeError:
+        uploaded_file.seek(0) # Reset the file pointer
+        df = pd.read_csv(uploaded_file, encoding='utf-16')
+        
     st.success(f"Successfully loaded {len(df)} leads!")
     
     # Check if the 'Programme' column exists to balance Computing vs Software Engineering equally
@@ -42,7 +47,8 @@ if uploaded_file is not None:
     
     # Create the downloadable file
     csv_buffer = io.StringIO()
-    df.to_csv(csv_buffer, index=False)
+    # We save the output back to standard UTF-8 so Excel and Sheets can read it easily
+    df.to_csv(csv_buffer, index=False, encoding='utf-8')
     
     st.download_button(
         label="📥 Download Assigned Leads",
